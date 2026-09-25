@@ -49,6 +49,14 @@ client.on('messageCreate', async message => {
         ffmpegPath: ffmpeg
       });
 
+      // Logs do processo FFmpeg
+      ffmpegStream.on('error', err => {
+        console.error('Erro no FFmpeg stream:', err);
+      });
+      ffmpegStream.on('close', code => {
+        console.log('FFmpeg finalizou com código:', code);
+      });
+
       const resource = createAudioResource(ffmpegStream, { inputType: 'opus' });
       player.play(resource);
       connection.subscribe(player);
