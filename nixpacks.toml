@@ -1,2 +1,11 @@
 [phases.setup]
-aptPkgs = ["ffmpeg", "build-essentials"]
+nixPkgs = ["nodejs-22_x", "ffmpeg"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = []
+
+[phases.start]
+cmd = "npm start"
