@@ -1,5 +1,7 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
+const ffmpeg = require('ffmpeg-static'); // usa o binário embutido
+const { spawn } = require('child_process');
 
 const client = new Client({
   intents: [
@@ -24,11 +26,19 @@ client.on('messageCreate', async message => {
 
       const player = createAudioPlayer();
 
-      // Cria o recurso de áudio a partir do link AAC
-      const resource = createAudioResource(RADIO_URL, {
-        inputType: StreamType.Arbitrary
-      });
+      // Usa ffmpeg-static para converter o stream AAC em PCM
+      const ffmpegProcess = spawn(ffmpeg, [
+        '-reconnect', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_delay_max', '5',
+        '-i', RADIO_URL,
+        '-f', 's16le',
+        '-ar', '48000',
+        '-ac', '2',
+        'pipe:1'
+      ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
+      const resource = createAudioResource(ffmpegProcess.stdout);
       player.play(resource);
       connection.subscribe(player);
 
