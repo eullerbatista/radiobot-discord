@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, getVoiceConnection } = require('@discordjs/voice');
 const prism = require('prism-media');
 const ffmpeg = require('ffmpeg-static');
 
@@ -45,9 +45,20 @@ client.on('messageCreate', async message => {
       player.play(resource);
       connection.subscribe(player);
 
-      message.reply("🎶 Tocando Rádio Mix FM São Paulo!");
+      message.reply("Tocando Rádio Mix FM São Paulo!");
     } else {
       message.reply("Você precisa estar em um canal de voz!");
+    }
+  }
+
+  // Novo comando !stop
+  if (message.content === '!stop') {
+    const connection = getVoiceConnection(message.guild.id);
+    if (connection) {
+      connection.destroy();
+      message.reply("botZADA encerrado, digite !mixfm para reconectar!");
+    } else {
+      message.reply("O bot não está em nenhum canal de voz.");
     }
   }
 });
