@@ -77,5 +77,5 @@ client.on('messageCreate', async message => {
     }
   }
 });
-
+//teste com logs no output
 client.login(process.env.TOKEN);
