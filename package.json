@@ -12,6 +12,6 @@
     "@discordjs/opus": "^0.10.0"
   },
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   }
 }
