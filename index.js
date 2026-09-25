@@ -1,83 +1,42 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { 
-    joinVoiceChannel, 
-    createAudioPlayer, 
-    createAudioResource, 
-    getVoiceConnection, 
-    StreamType 
-} = require('@discordjs/voice');
-const { spawn } = require('child_process');
-
-const ffmpegPath = 'C:/ffmpeg/bin/ffmpeg.exe';
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType } = require('@discordjs/voice');
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-client.once('clientReady', () => {
-    console.log(`Bot online como ${client.user.tag}`);
-});
+// Link da rádio Mix FM (AAC)
+const RADIO_URL = "https://playerservices.streamtheworld.com/api/livestream-redirect/MIXFM_SAOPAULOAAC.aac";
 
 client.on('messageCreate', async message => {
-    if (message.author.bot) return;
+  if (message.content === '!mixfm') {
+    if (message.member.voice.channel) {
+      const connection = joinVoiceChannel({
+        channelId: message.member.voice.channel.id,
+        guildId: message.guild.id,
+        adapterCreator: message.guild.voiceAdapterCreator,
+      });
 
-    if (message.content.toLowerCase() === '!mixfm') {
-        const channel = message.member.voice.channel;
-        if (!channel) return message.reply('Entre em um canal de voz primeiro!');
+      const player = createAudioPlayer();
 
-        const connection = joinVoiceChannel({
-            channelId: channel.id,
-            guildId: channel.guild.id,
-            adapterCreator: channel.guild.voiceAdapterCreator,
-        });
+      // Cria o recurso de áudio a partir do link AAC
+      const resource = createAudioResource(RADIO_URL, {
+        inputType: StreamType.Arbitrary
+      });
 
-        const player = createAudioPlayer();
+      player.play(resource);
+      connection.subscribe(player);
 
-        // FFmpeg mantém o stream AAC aberto continuamente
-        const ffmpeg = spawn(ffmpegPath, [
-            '-reconnect', '1',
-            '-reconnect_streamed', '1',
-            '-reconnect_delay_max', '5',
-            '-i', 'https://playerservices.streamtheworld.com/api/livestream-redirect/MIXFM_SAOPAULOAAC.aac',
-            '-f', 's16le',
-            '-ar', '48000',
-            '-ac', '2',
-            'pipe:1'
-        ]);
-
-        const resource = createAudioResource(ffmpeg.stdout, {
-            inputType: StreamType.Raw
-        });
-
-        player.play(resource);
-        connection.subscribe(player);
-
-        player.on('error', error => {
-            console.error(`Erro no player: ${error.message}`);
-            message.reply('Ocorreu um erro ao tentar tocar a rádio.');
-        });
-
-        player.on('stateChange', (oldState, newState) => {
-            console.log(`Player mudou de ${oldState.status} para ${newState.status}`);
-        });
-
-        message.reply('🎶 Tocando Mix FM!');
+      message.reply("🎶 Tocando Rádio Mix FM São Paulo!");
+    } else {
+      message.reply("Você precisa estar em um canal de voz!");
     }
-
-    if (message.content.toLowerCase() === '!stop') {
-        const connection = getVoiceConnection(message.guild.id);
-        if (connection) {
-            connection.destroy();
-            message.reply('Rádio parada.');
-        } else {
-            message.reply('O bot não está em nenhum canal.');
-        }
-    }
+  }
 });
 
 client.login(process.env.TOKEN);
