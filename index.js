@@ -59,7 +59,7 @@ client.on('messageCreate', async message => {
 
         player.on('error', error => {
             console.error(`Erro no player: ${error.message}`);
-            message.reply('⚠️ Ocorreu um erro ao tentar tocar a rádio.');
+            message.reply('Ocorreu um erro ao tentar tocar a rádio.');
         });
 
         player.on('stateChange', (oldState, newState) => {
@@ -73,7 +73,7 @@ client.on('messageCreate', async message => {
         const connection = getVoiceConnection(message.guild.id);
         if (connection) {
             connection.destroy();
-            message.reply('⏹️ Rádio parada.');
+            message.reply('Rádio parada.');
         } else {
             message.reply('O bot não está em nenhum canal.');
         }
