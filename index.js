@@ -29,21 +29,22 @@ client.on('messageCreate', async message => {
 
       const player = createAudioPlayer();
 
-      const ffmpegStream = new prism.FFmpeg({
-        args: [
-          '-reconnect', '1',
-          '-reconnect_streamed', '1',
-          '-reconnect_delay_max', '5',
-          '-i', RADIO_URL,
-          '-f', 's16le',
-          '-ar', '48000',
-          '-ac', '2'
-        ],
-        shell: false,
-        ffmpegPath: ffmpeg
-      });
+const ffmpegStream = new prism.FFmpeg({
+  args: [
+    '-reconnect', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_delay_max', '5',
+    '-i', RADIO_URL,
+    '-f', 'opus',        // saída em Opus
+    '-ar', '48000',      // taxa de amostragem
+    '-ac', '2'           // estéreo
+  ],
+  shell: false,
+  ffmpegPath: ffmpeg
+});
 
-      const resource = createAudioResource(ffmpegStream);
+const resource = createAudioResource(ffmpegStream, { inputType: 'opus' });
+
       player.play(resource);
       connection.subscribe(player);
 
