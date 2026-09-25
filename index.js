@@ -1,7 +1,7 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
-const ffmpeg = require('ffmpeg-static'); // usa o binário embutido
-const { spawn } = require('child_process');
+const prism = require('prism-media');
+const ffmpeg = require('ffmpeg-static');
 
 const client = new Client({
   intents: [
@@ -26,19 +26,22 @@ client.on('messageCreate', async message => {
 
       const player = createAudioPlayer();
 
-      // Usa ffmpeg-static para converter o stream AAC em PCM
-      const ffmpegProcess = spawn(ffmpeg, [
-        '-reconnect', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_delay_max', '5',
-        '-i', RADIO_URL,
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '2',
-        'pipe:1'
-      ], { stdio: ['ignore', 'pipe', 'ignore'] });
+      // Usa prism-media com ffmpeg-static para converter AAC em PCM
+      const ffmpegStream = new prism.FFmpeg({
+        args: [
+          '-reconnect', '1',
+          '-reconnect_streamed', '1',
+          '-reconnect_delay_max', '5',
+          '-i', RADIO_URL,
+          '-f', 's16le',
+          '-ar', '48000',
+          '-ac', '2'
+        ],
+        shell: false,
+        ffmpegPath: ffmpeg
+      });
 
-      const resource = createAudioResource(ffmpegProcess.stdout);
+      const resource = createAudioResource(ffmpegStream);
       player.play(resource);
       connection.subscribe(player);
 
