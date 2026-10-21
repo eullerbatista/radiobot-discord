@@ -1,81 +1,98 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
-const prism = require('prism-media');
-const ffmpeg = require('ffmpeg-static');
+const { 
+    joinVoiceChannel, 
+    createAudioPlayer, 
+    createAudioResource, 
+    getVoiceConnection, 
+    StreamType 
+} = require('@discordjs/voice');
+const { spawn } = require('child_process');
+
+// No Windows usa o FFmpeg local; no Railway (Linux) usa o ffmpeg instalado pelo nixpacks
+const ffmpegPath = process.env.FFMPEG_PATH
+    || (process.platform === 'win32' ? 'C:/ffmpeg/bin/ffmpeg.exe' : 'ffmpeg');
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
 });
 
-// Link da rádio Mix FM (AAC)
-const RADIO_URL = "https://playerservices.streamtheworld.com/api/livestream-redirect/MIXFM_SAOPAULOAAC.aac";
-
-// variável para guardar a conexão
-let connection;
+client.once('clientReady', () => {
+    console.log(`Bot online como ${client.user.tag}`);
+});
 
 client.on('messageCreate', async message => {
-  if (message.content === '!mixfm') {
-    if (message.member.voice.channel) {
-      connection = joinVoiceChannel({
-        channelId: message.member.voice.channel.id,
-        guildId: message.guild.id,
-        adapterCreator: message.guild.voiceAdapterCreator,
-      });
+    if (message.author.bot) return;
 
-      const player = createAudioPlayer();
+    if (message.content.toLowerCase() === '!mixfm') {
+        const channel = message.member.voice.channel;
+        if (!channel) return message.reply('Entre em um canal de voz primeiro!');
 
-      // Log de erros do player
-      player.on('error', error => {
-        console.error('Erro no player:', error.message, error.stack);
-      });
+        const connection = joinVoiceChannel({
+            channelId: channel.id,
+            guildId: channel.guild.id,
+            adapterCreator: channel.guild.voiceAdapterCreator,
+        });
 
-      const ffmpegStream = new prism.FFmpeg({
-        args: [
-          '-reconnect', '1',
-          '-reconnect_streamed', '1',
-          '-reconnect_delay_max', '5',
-          '-i', RADIO_URL,
-          '-c:a', 'libopus',   // força codec Opus
-          '-f', 'opus',
-          '-ar', '48000',
-          '-ac', '2'
-        ],
-        shell: false,
-        ffmpegPath: ffmpeg
-      });
+        const player = createAudioPlayer();
 
-      // Logs do processo FFmpeg
-      ffmpegStream.on('error', err => {
-        console.error('Erro no FFmpeg stream:', err);
-      });
-      ffmpegStream.on('close', code => {
-        console.log('FFmpeg finalizou com código:', code);
-      });
+        // FFmpeg mantém o stream AAC aberto continuamente
+        const ffmpeg = spawn(ffmpegPath, [
+            '-reconnect', '1',
+            '-reconnect_streamed', '1',
+            '-reconnect_delay_max', '5',
+            '-i', 'https://playerservices.streamtheworld.com/api/livestream-redirect/MIXFM_SAOPAULOAAC.aac',
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
+            'pipe:1'
+        ]);
 
-      const resource = createAudioResource(ffmpegStream, { inputType: 'opus' });
-      player.play(resource);
-      connection.subscribe(player);
+        // Sem isso, se o FFmpeg não abrir o bot fica mudo sem mostrar erro nenhum
+        ffmpeg.on('error', err => {
+            console.error(`Erro ao iniciar o FFmpeg (${ffmpegPath}): ${err.message}`);
+        });
+        ffmpeg.stderr.on('data', data => {
+            const line = data.toString();
+            if (/error|fail|invalid/i.test(line)) console.error(`FFmpeg: ${line.trim()}`);
+        });
+        ffmpeg.on('close', code => {
+            console.log(`FFmpeg finalizou com código: ${code}`);
+        });
 
-      message.reply("Tocando Rádio Mix FM São Paulo!");
-    } else {
-      message.reply("Você precisa estar em um canal de voz!");
+        const resource = createAudioResource(ffmpeg.stdout, {
+            inputType: StreamType.Raw
+        });
+
+        player.play(resource);
+        connection.subscribe(player);
+
+        player.on('error', error => {
+            console.error(`Erro no player: ${error.message}`);
+            message.reply('⚠️ Ocorreu um erro ao tentar tocar a rádio.');
+        });
+
+        player.on('stateChange', (oldState, newState) => {
+            console.log(`Player mudou de ${oldState.status} para ${newState.status}`);
+        });
+
+        message.reply('🎶 Tocando Mix FM!');
     }
-  }
 
-  if (message.content === '!stop') {
-    if (connection) {
-      connection.destroy();
-      connection = null;
-      message.reply("Rádio Mix FM desligada!");
-    } else {
-      message.reply("O bot não está em nenhum canal de voz.");
+    if (message.content.toLowerCase() === '!stop') {
+        const connection = getVoiceConnection(message.guild.id);
+        if (connection) {
+            connection.destroy();
+            message.reply('⏹️ Rádio parada.');
+        } else {
+            message.reply('O bot não está em nenhum canal.');
+        }
     }
-  }
 });
-//teste com logs no output
+
+
 client.login(process.env.TOKEN);

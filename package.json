@@ -17,8 +17,10 @@
   "engines": {
     "node": "22.x"
   },
-  "allowScripts": {
-    "@discordjs/opus@0.10.0": true,
-    "ffmpeg-static@5.3.0": true
+  "installConfig": {
+    "allowScripts": {
+      "@discordjs/opus": true,
+      "ffmpeg-static": true
+    }
   }
 }
